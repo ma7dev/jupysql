@@ -576,3 +576,32 @@ def ip_with_clickhouse(ip_empty, setup_clickhouse):
     yield ip_empty
     # Disconnect database
     ip_empty.run_cell("%sql -x " + config["alias"])
+
+@pytest.fixture(scope="session")
+def setup_cockroach(test_table_name_dict, skip_on_live_mode):
+    with _testing.cockroach():
+        engine = create_engine(
+            _testing.DatabaseConfigHelper.get_database_url("cockroach")
+        )
+        # Load pre-defined datasets
+        load_generic_testing_data(engine, test_table_name_dict)
+        yield engine
+        tear_down_generic_testing_data(engine, test_table_name_dict)
+        engine.dispose()
+
+
+@pytest.fixture
+def ip_with_cockroach(ip_empty, setup_cockroach):
+    configKey = "cockroach"
+    alias = _testing.DatabaseConfigHelper.get_database_config(configKey)["alias"]
+
+    # Select database engine
+    ip_empty.run_cell(
+        "%sql "
+        + _testing.DatabaseConfigHelper.get_database_url(configKey)
+        + " --alias "
+        + alias
+    )
+    yield ip_empty
+    # Disconnect database
+    ip_empty.run_cell("%sql -x " + alias)

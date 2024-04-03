@@ -28,6 +28,7 @@ nb_execution_excludepatterns = [
     "integrations/snowflake.ipynb",
     "integrations/redshift.ipynb",
     "integrations/spark.ipynb",
+    "integrations/cockroach.ipynb",
 ]
 nb_execution_in_temp = True
 nb_execution_show_tb = True

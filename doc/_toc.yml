@@ -45,6 +45,7 @@ parts:
       - file: integrations/compatibility
       - file: integrations/chdb
       - file: integrations/spark
+      - file: integrations/cockroach
 
   - caption: API Reference
     chapters:

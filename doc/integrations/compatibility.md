@@ -79,7 +79,7 @@ These table reflects the compatibility status of JupySQL `>=0.7`
 - Plotting with `%%sqlplot bar` ❓
 - Plotting with `%%sqlplot pie` ❓
 - Plotting with `%%sqlplot histogram` ✅
-- Plotting with `ggplot` API ✅ (partial support)
+- Plotting with `ggplot` API ✅ (partially support)
 - Profiling tables with `%sqlcmd profile` ✅
 - Listing tables with `%sqlcmd tables` ✅
 - Listing columns with `%sqlcmd columns` ✅
@@ -131,3 +131,18 @@ These table reflects the compatibility status of JupySQL `>=0.7`
 - Parametrized SQL queries via `{{parameter}}` ✅
 - Interactive SQL queries via `--interact` ✅
 - Persisting Dataframes via `--persist` ✅
+
+## Cockroach
+
+**Almost Full compatibility**
+
+- Running queries with `%%sql` ✅
+- CTEs with `%%sql --save NAME` ✅
+- Plotting with `%%sqlplot boxplot` ❌
+- Plotting with `%%sqlplot histogram` ✅ 
+- Plotting with `ggplot` ✅ API (partially support)
+- Profiling tables with `%sqlcmd profile` ✅
+- Listing tables with `%sqlcmd tables` ✅
+- Listing columns with `%sqlcmd columns` ✅
+- Parametrized SQL queries via `{{parameter}}` ✅
+- Interactive SQL queries via `--interact` ✅

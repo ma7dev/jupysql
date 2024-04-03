@@ -230,6 +230,23 @@ databaseConfig = {
         },
         "query": {},
     },
+    "cockroach": {
+        "drivername": "cockroachdb+psycopg2",
+        "username": "root",
+        "password": None,
+        # database/schema
+        "database": "defaultdb",
+        "host": "localhost",
+        "port": "26257",
+        "alias": "cockroachTest",
+        "query": {"sslmode": "disable"},
+        "docker_ct": {
+            "name": "cockroach",
+            "image": "cockroachdb/cockroach:latest",
+            "ports": {26257: 26257, 8080: 8080},
+            "command": "start-single-node --insecure",
+        },
+    },
 }
 
 
@@ -448,7 +465,7 @@ def mssql(is_bypass_init=False, print_credentials=False):
                 "MSSQL_SA_PASSWORD": db_config["password"],
                 "ACCEPT_EULA": "Y",
             },
-            ready_test=lambda: database_ready(database="MSSQL"),
+            ready_test=lambda: database_ready(database="MSSQL", timeout=60),
             healthcheck={
                 "test": "/opt/mssql-tools/bin/sqlcmd "
                 "-U $DB_USER -P $SA_PASSWORD "
@@ -523,6 +540,27 @@ def clickhouse(is_bypass_init=False, print_credentials=False):
         ) as container:
             yield container
 
+@contextmanager
+def cockroach(is_bypass_init=False):
+    if is_bypass_init:
+        yield None
+        return
+    db_config = DatabaseConfigHelper.get_database_config("cockroach")
+    try:
+        client = docker.from_env(version="auto")
+        client.containers.prune()
+        curr = client.containers.get(db_config["docker_ct"]["name"])
+        yield curr
+    except docker.errors.NotFound:
+        print("Creating new container: Cockroach")
+        with new_container(
+            new_container_name=db_config["docker_ct"]["name"],
+            image_name=db_config["docker_ct"]["image"],
+            ports=db_config["docker_ct"]["ports"],
+            ready_test=lambda: database_ready(database="cockroach", timeout=60),
+            command=db_config["docker_ct"]["command"],
+        ) as container:
+            yield container
 
 def main():
     available_databases = [
@@ -532,6 +570,7 @@ def main():
         "mssql",
         "oracle",
         "clickhouse",
+        "cockroach"
     ]
 
     parser = argparse.ArgumentParser(description="Start database containers")

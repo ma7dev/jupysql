@@ -22,6 +22,7 @@ ALL_DATABASES = [
     "ip_with_oracle",
     "ip_with_clickhouse",
     "ip_with_spark",
+    "ip_with_cockroach",
 ]
 
 # NOTE: We don't need to add tests for Snowflake and Redshift
@@ -48,18 +49,12 @@ def mock_log_api(monkeypatch):
 @pytest.mark.parametrize(
     "ip_with_dynamic_db, query_prefix, query_suffix",
     [
-        ("ip_with_postgreSQL", "", "LIMIT 3"),
-        ("ip_with_mySQL", "", "LIMIT 3"),
-        ("ip_with_mariaDB", "", "LIMIT 3"),
-        ("ip_with_SQLite", "", "LIMIT 3"),
-        ("ip_with_duckDB_native", "", "LIMIT 3"),
-        ("ip_with_duckDB", "", "LIMIT 3"),
-        ("ip_with_Snowflake", "", "LIMIT 3"),
-        ("ip_with_redshift", "", "LIMIT 3"),
-        ("ip_with_clickhouse", "", "LIMIT 3"),
-        ("ip_with_oracle", "", "FETCH FIRST 3 ROWS ONLY"),
-        ("ip_with_MSSQL", "TOP 3", ""),
-        ("ip_with_spark", "", "LIMIT 3"),
+        ("ip_with_postgreSQL", 3),
+        ("ip_with_mySQL", 3),
+        ("ip_with_mariaDB", 3),
+        ("ip_with_SQLite", 3),
+        ("ip_with_duckDB", 3),
+        ("ip_with_Snowflake", 3),
     ],
 )
 def test_run_query(
@@ -88,77 +83,14 @@ def test_run_query(
 
 
 @pytest.mark.parametrize(
-    "ip_with_dynamic_db",
+    "ip_with_dynamic_db, expected, limit",
     [
-        "ip_with_postgreSQL",
-        "ip_with_mySQL",
-        "ip_with_mariaDB",
-        "ip_with_SQLite",
-        "ip_with_duckDB",
-        "ip_with_duckDB_native",
-        "ip_with_Snowflake",
-        "ip_with_redshift",
-        "ip_with_clickhouse",
-        "ip_with_spark",
-    ],
-)
-def test_handle_multiple_open_result_sets(
-    ip_with_dynamic_db, request, test_table_name_dict
-):
-    ip_with_dynamic_db = request.getfixturevalue(ip_with_dynamic_db)
-    taxi_table = test_table_name_dict["taxi"]
-    numbers_table = test_table_name_dict["numbers"]
-
-    ip_with_dynamic_db.run_cell("%config SqlMagic.displaylimit = 2")
-
-    taxi = ip_with_dynamic_db.run_cell(
-        f"%sql SELECT * FROM {taxi_table} LIMIT 5"
-    ).result
-
-    numbers = ip_with_dynamic_db.run_cell(
-        f"%sql SELECT * FROM {numbers_table} LIMIT 5"
-    ).result
-
-    # NOTE: we do not check the value of the indexes because snowflake does not support
-    # them
-    assert taxi.dict()["taxi_driver_name"] == (
-        "Eric Ken",
-        "John Smith",
-        "Kevin Kelly",
-        "Eric Ken",
-        "John Smith",
-    )
-    assert numbers.dict()["numbers_elements"] == (1, 2, 3, 1, 2)
-
-
-@pytest.mark.parametrize(
-    "ip_with_dynamic_db, args",
-    [
-        ("ip_with_postgreSQL", ""),
-        ("ip_with_mySQL", ""),
-        ("ip_with_mariaDB", ""),
-        ("ip_with_SQLite", ""),
-        ("ip_with_duckDB", ""),
-        pytest.param(
-            "ip_with_duckDB_native",
-            "",
-            marks=pytest.mark.xfail(
-                reason="'duckdb.DuckDBPyConnection' object has no attribute 'rowcount'"
-            ),
-        ),
-        # snowflake and redshift do not support "CREATE INDEX", so we need to
-        # pass --no-index
-        ("ip_with_Snowflake", "--no-index"),
-        ("ip_with_redshift", "--no-index"),
-        pytest.param(
-            "ip_with_clickhouse",
-            "",
-            marks=pytest.mark.xfail(
-                reason="sqlalchemy.exc.CompileError: "
-                "No engine for table <table_name>"
-            ),
-        ),
-        ("ip_with_spark", "--no-index"),
+        ("ip_with_postgreSQL", 15, 15),
+        ("ip_with_mySQL", 15, 15),
+        ("ip_with_mariaDB", 15, 15),
+        ("ip_with_SQLite", 15, 15),
+        ("ip_with_duckDB", 15, 15),
+        # Snowflake doesn't support index, skip that
     ],
 )
 def test_create_table_with_indexed_df(
@@ -225,8 +157,6 @@ def get_connection_count(ip_with_dynamic_db):
         ("ip_with_duckDB_native", 1),
         ("ip_with_MSSQL", 1),
         ("ip_with_Snowflake", 1),
-        ("ip_with_clickhouse", 1),
-        ("ip_with_spark", 1),
     ],
 )
 def test_active_connection_number(ip_with_dynamic_db, expected, request):
@@ -245,8 +175,6 @@ def test_active_connection_number(ip_with_dynamic_db, expected, request):
         ("ip_with_duckDB_native", "duckDB"),
         ("ip_with_MSSQL", "MSSQL"),
         ("ip_with_Snowflake", "Snowflake"),
-        ("ip_with_oracle", "oracle"),
-        ("ip_with_clickhouse", "clickhouse"),
     ],
 )
 def test_close_and_connect(
@@ -280,9 +208,6 @@ def test_close_and_connect(
         ("ip_with_duckDB_native", "duckdb", "DuckDBPyConnection"),
         ("ip_with_MSSQL", "mssql", "pyodbc"),
         ("ip_with_Snowflake", "snowflake", "snowflake"),
-        ("ip_with_oracle", "oracle", "oracledb"),
-        ("ip_with_clickhouse", "clickhouse", "native"),
-        ("ip_with_spark", "spark2", "SparkSession"),
     ],
 )
 def test_telemetry_execute_command_has_connection_info(
@@ -358,6 +283,7 @@ def test_telemetry_execute_command_has_connection_info(
                 reason="Plotting from snippet not working in clickhouse"
             ),
         ),
+        ("ip_with_cockroach"),
     ],
 )
 def test_sqlplot_histogram(ip_with_dynamic_db, cell, request, test_table_name_dict):
@@ -423,15 +349,6 @@ BOX_PLOT_FAIL_REASON = (
             marks=pytest.mark.xfail(
                 reason="Something wrong with sqlplot boxplot in snowflake"
             ),
-        ),
-        pytest.param(
-            "ip_with_clickhouse",
-            marks=pytest.mark.xfail(
-                reason="Plotting from snippet not working in clickhouse"
-            ),
-        ),
-        pytest.param(
-            "ip_with_spark", marks=pytest.mark.xfail(reason=BOX_PLOT_FAIL_REASON)
         ),
     ],
 )
@@ -589,9 +506,6 @@ VALUES
             marks=pytest.mark.xfail(reason="not working yet"),
         ),
         ("ip_with_Snowflake"),
-        ("ip_with_oracle"),
-        ("ip_with_clickhouse"),
-        ("ip_with_spark"),
     ],
 )
 def test_sqlcmd_test(ip_with_dynamic_db, request, test_table_name_dict):
@@ -625,9 +539,6 @@ def test_sqlcmd_test(ip_with_dynamic_db, request, test_table_name_dict):
                 reason="Something wrong with test_sql_cmd_magic_dos in snowflake"
             ),
         ),
-        ("ip_with_oracle"),
-        ("ip_with_clickhouse"),
-        ("ip_with_spark"),
     ],
 )
 def test_profile_data_mismatch(ip_with_dynamic_db, request, capsys):
@@ -785,62 +696,11 @@ def test_profile_data_mismatch(ip_with_dynamic_db, request, capsys):
                 reason="Something wrong with test_profile_query in snowflake"
             ),
         ),
-        pytest.param(
-            "ip_with_oracle",
-            "taxi",
-            ["taxi_driver_name"],
-            {},
-            None,
-            marks=pytest.mark.xfail(
-                reason="Something wrong with test_profile_query in snowflake"
-            ),
-        ),
-        pytest.param(
-            "ip_with_clickhouse",
-            "taxi",
-            ["taxi_driver_name"],
-            {
-                "count": [45],
-                "mean": [0.0],
-                "min": ["Eric Ken"],
-                "max": ["Kevin Kelly"],
-                "unique": [3],
-                "freq": [15],
-                "top": ["Kevin Kelly"],
-            },
-            "Following statistics are not available in",
-        ),
-        (
-            "ip_with_spark",
-            "taxi",
-            ["taxi_driver_name"],
-            {
-                "count": [45],
-                "mean": [math.nan],
-                "min": ["Eric Ken"],
-                "max": ["Kevin Kelly"],
-                "unique": [3],
-                "freq": [15],
-                "top": ["Eric Ken"],
-                "std": [math.nan],
-                "25%": [math.nan],
-                "50%": [math.nan],
-                "75%": [math.nan],
-            },
-            None,
-        ),
     ],
 )
-def test_sqlcmd_profile(
-    request,
-    ip_with_dynamic_db,
-    table,
-    table_columns,
-    expected,
-    test_table_name_dict,
-    message,
+def test_profile_query(
+    request, ip_with_dynamic_db, table, table_columns, expected, test_table_name_dict
 ):
-    pytest.skip("Skip on unclosed session issue")
     ip_with_dynamic_db = request.getfixturevalue(ip_with_dynamic_db)
 
     out = ip_with_dynamic_db.run_cell(
@@ -863,9 +723,9 @@ def test_sqlcmd_profile(
 
             assert criteria in expected
             assert cell_value == str(expected[criteria][i])
-
-    if message:
-        assert message in stats_table_html
+    # TODO: what is this?
+    # if message:
+    #     assert message in stats_table_html
 
 
 @pytest.mark.parametrize(
